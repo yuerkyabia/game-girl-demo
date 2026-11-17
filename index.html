@@ -1,3 +1,4 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -32,6 +33,32 @@ h1{font-size:clamp(2.2rem,4.8vw,4.3rem);font-weight:600;margin:0;letter-spacing:
 .paper:hover{transform:translateX(6px)}
 .paper.cream{background:rgba(246,238,228,.9)}.paper.sage{background:rgba(214,222,203,.9)}.paper.blue{background:rgba(217,225,236,.9)}
 .paper .ic{display:flex}.paper .ch{opacity:.7}.paper .nm{flex:1;font-size:1.3rem;font-weight:600;text-align:center}.paper small{display:block;font-size:.78rem;font-weight:400;color:var(--mut)}
+
+/* ===== 玩家經驗分享 ===== */
+.xp{position:fixed;inset:0;background:rgba(20,24,32,.78);z-index:310;display:flex;align-items:center;justify-content:center;padding:14px}
+.xpbox{background:var(--paper);color:var(--ink);border-radius:16px;width:100%;max-width:640px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.xphead{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 8px}
+.xphead h3{margin:0;font-size:1.15rem}
+.xpx{background:none;border:none;font-size:1.4rem;color:var(--ink);cursor:pointer;line-height:1}
+.xpbody{padding:4px 20px 20px;overflow:auto}
+.xptabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px}
+.xptabs button{border:1px solid #9fb2c8;background:transparent;color:var(--ink);border-radius:999px;padding:5px 14px;font-size:.85rem;cursor:pointer}
+.xptabs button.on{background:#5d7390;color:#fff;border-color:#5d7390}
+.xpnote{font-size:.8rem;opacity:.75;line-height:1.6;margin:6px 0 12px}
+.xpitem{border:1px solid rgba(74,64,54,.2);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:rgba(255,255,255,.35)}
+.xpitem h4{margin:0 0 4px;font-size:1rem}
+.xpitem p{margin:4px 0;white-space:pre-wrap;word-break:break-word;line-height:1.7;font-size:.92rem}
+.xpmeta{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;opacity:.8;margin-top:6px}
+.xpmeta button{background:none;border:none;color:#a8566a;cursor:pointer;font-size:.78rem;text-decoration:underline}
+.xpmeta button:disabled{color:#888;text-decoration:none;cursor:default}
+.xpform label{display:block;font-size:.85rem;margin:10px 0 4px}
+.xpform input[type=text],.xpform textarea,.xpform select{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #9fb2c8;border-radius:8px;background:#fff;color:#333;font:inherit}
+.xpform textarea{min-height:150px;resize:vertical}
+.xpcount{font-size:.75rem;opacity:.7;text-align:right}
+.xpmsg{margin:10px 0;padding:10px 12px;border-radius:8px;font-size:.88rem;line-height:1.6}
+.xpmsg.ok{background:rgba(111,138,108,.2)}
+.xpmsg.err{background:rgba(168,86,106,.18)}
+.xphp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
 .foot{position:absolute;left:6%;bottom:22px;z-index:2;display:flex;gap:18px;flex-wrap:wrap}
 .foot button{background:none;border:none;color:#fff;font-size:.88rem;padding:0;text-shadow:0 1px 5px rgba(0,0,0,.5)}
 .foot button+button{border-left:1px solid rgba(255,255,255,.6);padding-left:18px}.foot button:hover{text-decoration:underline}
@@ -115,7 +142,7 @@ table{border-collapse:collapse;width:100%;margin:8px 0}td{padding:4px 0;border-b
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useEffect } = React;
 
 /* ============ 圖片素材設定：之後把網址或路徑填入即可，空字串＝顯示佔位區 ============ */
 const IMAGES = {
@@ -650,8 +677,99 @@ function Modal({ kind, onClose }) {
 }
 
 /* ============ 畫面 ============ */
+/* ===== 玩家經驗分享（匿名分享；只顯示審核通過的內容）===== */
+const API_BASE = "https://pingfan-yitian-api.cherry58999.workers.dev/api";
+const XP_CATS = [["daily", "日常"], ["campus", "校園"], ["work", "職場"], ["other", "其他"]];
+const XP_CAT_NAME = { daily: "日常", campus: "校園", work: "職場", other: "其他" };
+const XP_MAX_TITLE = 50, XP_MIN_CONTENT = 10, XP_MAX_CONTENT = 1000;
+const xpGetReported = () => { try { return JSON.parse(localStorage.getItem("xpReported") || "[]"); } catch (e) { return []; } };
+const xpSaveReported = (arr) => { try { localStorage.setItem("xpReported", JSON.stringify(arr)); } catch (e) {} };
+
+function Experiences({ onClose }) {
+  const [tab, setTab] = useState("all");      // all | daily | campus | work | write
+  const [items, setItems] = useState(null);   // null = 載入中
+  const [err, setErr] = useState("");
+  const [reported, setReported] = useState(xpGetReported());
+  const [f, setF] = useState({ title: "", content: "", category: "daily", website: "" });
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState(null);       // {ok, text}
+
+  const load = (cat) => {
+    setItems(null); setErr("");
+    const q = cat && cat !== "all" ? "?category=" + encodeURIComponent(cat) : "";
+    fetch(API_BASE + "/experiences" + q)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => setItems(Array.isArray(d.items) ? d.items : []))
+      .catch(() => { setItems([]); setErr("目前無資料。"); });
+  };
+  useEffect(() => { if (tab !== "write") load(tab); }, [tab]);
+
+  const report = (id) => {
+    if (reported.includes(id)) return;
+    fetch(API_BASE + "/experiences/" + id + "/report", { method: "POST" })
+      .then(r => {
+        if (r.ok || r.status === 429) {
+          const nr = [...reported, id]; setReported(nr); xpSaveReported(nr);
+        }
+      }).catch(() => {});
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    const title = f.title.trim(), content = f.content.trim();
+    if (!title) return setRes({ ok: false, text: "請輸入標題。" });
+    if (content.length < XP_MIN_CONTENT) return setRes({ ok: false, text: "內容至少需要 " + XP_MIN_CONTENT + " 個字。" });
+    setBusy(true); setRes(null);
+    fetch(API_BASE + "/experiences", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, content, category: f.category, website: f.website }),
+    }).then(async r => {
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) { setRes({ ok: true, text: "已收到，審核通過後才會公開。" }); setF({ title: "", content: "", category: f.category, website: "" }); }
+      else setRes({ ok: false, text: d.error || d.message || "送出失敗，請稍後再試。" });
+    }).catch(() => setRes({ ok: false, text: "目前無法送出，請稍後再試。" })).finally(() => setBusy(false));
+  };
+
+  // 所有使用者內容都只當純文字顯示（React 預設會跳脫），不使用 dangerouslySetInnerHTML
+  return (<div className="xp" onClick={onClose}><div className="xpbox" onClick={e => e.stopPropagation()}>
+    <div className="xphead"><h3>玩家經驗分享</h3><button className="xpx" onClick={onClose} aria-label="關閉">×</button></div>
+    <div className="xpbody">
+      <div className="xptabs">
+        {[["all", "全部"], ...XP_CATS, ["write", "我想分享"]].map(([k, n]) =>
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); setRes(null); }}>{n}</button>)}
+      </div>
+      {tab !== "write" ? <>
+        <div className="xpnote">這裡只顯示經過審核的匿名分享。內容僅代表分享者個人經驗。若看到不適合的內容，可按「檢舉」。</div>
+        {items === null && <p>載入中…</p>}
+        {err && <div className="xpmsg err">{err}</div>}
+        {items && !err && items.length === 0 && <p>目前還沒有公開的分享。</p>}
+        {items && items.map(it => (<div className="xpitem" key={it.id}>
+          <h4>{it.title}</h4><p>{it.content}</p>
+          <div className="xpmeta"><span>{XP_CAT_NAME[it.category] || ""}　{String(it.created_at || "").slice(0, 10)}</span>
+            <button disabled={reported.includes(it.id)} onClick={() => report(it.id)}>{reported.includes(it.id) ? "已檢舉" : "檢舉"}</button></div>
+        </div>))}
+      </> : <form className="xpform" onSubmit={submit}>
+        <div className="xpnote">投稿為匿名，送出後不會立即公開，需經審核。請不要寫入真實姓名、電話、住址、學校或公司名稱等可辨識自己或他人的資訊。若你現在需要協助，請按畫面右下角的求助按鈕。</div>
+        <label>分類</label>
+        <select value={f.category} onChange={e => setF({ ...f, category: e.target.value })}>
+          {XP_CATS.map(([k, n]) => <option key={k} value={k}>{n}</option>)}</select>
+        <label>標題</label>
+        <input type="text" maxLength={XP_MAX_TITLE} value={f.title} onChange={e => setF({ ...f, title: e.target.value })} />
+        <div className="xpcount">{f.title.length}/{XP_MAX_TITLE}</div>
+        <label>內容</label>
+        <textarea maxLength={XP_MAX_CONTENT} value={f.content} onChange={e => setF({ ...f, content: e.target.value })} />
+        <div className="xpcount">{f.content.length}/{XP_MAX_CONTENT}</div>
+        <input className="xphp" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website} onChange={e => setF({ ...f, website: e.target.value })} />
+        {res && <div className={"xpmsg " + (res.ok ? "ok" : "err")}>{res.text}</div>}
+        <button className="btn" type="submit" disabled={busy}>{busy ? "送出中…" : "匿名送出"}</button>
+      </form>}
+    </div>
+  </div></div>);
+}
+
 function Home({ onStart, onPreview }) {
   const [m, setM] = useState(null);
+  const [xp, setXp] = useState(false);
   const tone = { daily: "cream", campus: "sage", work: "blue" };
   const sv = (c, d) => <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke={c} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round">{d}</svg>;
   const icon = {
@@ -675,8 +793,9 @@ function Home({ onStart, onPreview }) {
     <div className="foot">
       <button onClick={() => setM("play")}>遊戲玩法</button>
       <button onClick={() => setM("data")}>資料使用說明</button>
+      <button onClick={() => setXp(true)}>玩家經驗分享</button>
     </div>
-  </div>{m && <Modal kind={m} onClose={() => setM(null)} />}</div>);
+  </div>{m && <Modal kind={m} onClose={() => setM(null)} />}{xp && <Experiences onClose={() => setXp(false)} />}</div>);
 }
 
 const Preview = ({ ch, onBack }) => (
@@ -835,3 +954,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
+
+</body></html>
