@@ -58,6 +58,19 @@ h1{font-size:clamp(2.2rem,4.8vw,4.3rem);font-weight:600;margin:0;letter-spacing:
 .xpmsg.ok{background:rgba(111,138,108,.2)}
 .xpmsg.err{background:rgba(168,86,106,.18)}
 .xphp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+
+.xpcta{display:flex;align-items:center;gap:16px;text-align:left;width:100%;border:1px solid rgba(255,255,255,.8);border-radius:16px 20px 14px 18px;padding:16px 20px;color:#fff;background:linear-gradient(135deg,rgba(168,86,106,.95),rgba(196,120,138,.92));box-shadow:0 4px 18px rgba(120,40,60,.35);cursor:pointer;font:inherit;transition:.2s}
+.xpcta:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(120,40,60,.45)}
+.xpcta .nm{flex:1;font-size:1.2rem;font-weight:600;text-align:center}
+.xpcta small{display:block;font-size:.78rem;font-weight:400;opacity:.92}
+.endshare{margin:22px auto 6px;max-width:520px;padding:20px 22px;border-radius:16px;background:rgba(168,86,106,.14);border:1px solid rgba(168,86,106,.45);text-align:center;line-height:1.85}
+.endshare .k{font-size:.8rem;letter-spacing:.12em;opacity:.8}
+.endshare h3{margin:4px 0 2px;font-size:1.25rem}
+.endshare .big{font-size:1.15rem;font-weight:600;margin:10px 0}
+.endshare p{margin:8px 0;font-size:.95rem}
+.endshare .vol{font-size:.85rem;opacity:.85}
+.endshare .btn{background:#a8566a;border-color:#a8566a;margin-top:8px;padding:11px 30px;font-size:1rem}
+.endshare .btn:hover{background:#8f4559}
 .foot{position:absolute;left:6%;bottom:22px;z-index:2;display:flex;gap:18px;flex-wrap:wrap}
 .foot button{background:none;border:none;color:#fff;font-size:.88rem;padding:0;text-shadow:0 1px 5px rgba(0,0,0,.5)}
 .foot button+button{border-left:1px solid rgba(255,255,255,.6);padding-left:18px}.foot button:hover{text-decoration:underline}
@@ -684,8 +697,8 @@ const XP_MAX_TITLE = 50, XP_MIN_CONTENT = 10, XP_MAX_CONTENT = 1000;
 const xpGetReported = () => { try { return JSON.parse(localStorage.getItem("xpReported") || "[]"); } catch (e) { return []; } };
 const xpSaveReported = (arr) => { try { localStorage.setItem("xpReported", JSON.stringify(arr)); } catch (e) {} };
 
-function Experiences({ onClose }) {
-  const [tab, setTab] = useState("all");      // all | daily | campus | work | write
+function Experiences({ onClose, initialTab }) {
+  const [tab, setTab] = useState(initialTab || "all");      // all | daily | campus | work | write
   const [items, setItems] = useState(null);   // null = 載入中
   const [err, setErr] = useState("");
   const [reported, setReported] = useState(xpGetReported());
@@ -787,12 +800,15 @@ function Home({ onStart, onPreview }) {
           <button key={c.key} className={"paper " + tone[c.key]} onClick={() => CHAP_EVENTS[c.key].length === 0 ? onPreview(c) : onStart(c.key)}>
             <span className="ic">{icon[c.key]}</span><span className="nm">{c.name}<small>{CHAP_EVENTS[c.key].length ? CHAP_EVENTS[c.key].length + " 個情境" : c.sub}</small></span><span style={{ opacity: .6 }}>›</span>
           </button>))}
+        <button className="xpcta" onClick={() => setXp(true)}>
+          <span className="ic"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg></span>
+          <span className="nm">玩家經驗分享<small>你的經歷，也值得被聽見</small></span><span style={{ opacity: .8 }}>›</span>
+        </button>
       </div>
     </div>
     <div className="foot">
       <button onClick={() => setM("play")}>遊戲玩法</button>
       <button onClick={() => setM("data")}>資料使用說明</button>
-      <button onClick={() => setXp(true)}>玩家經驗分享</button>
     </div>
   </div>{m && <Modal kind={m} onClose={() => setM(null)} />}{xp && <Experiences onClose={() => setXp(false)} />}</div>);
 }
@@ -861,6 +877,7 @@ function LogSummary({ log }) {
 }
 
 function End({ over, chName, chKey, stress, log, onRestart, onHome, onOther }) {
+  const [xp, setXp] = useState(false);
   const events = log.filter(l => l.kind === "event").length, safe = log.filter(l => l.kind === "safe").length;
   return (<div className="app"><div className={"pagebg " + BG_CLASS[chKey]} /><div className="center">
     <div className="tag">{chName}</div>
@@ -872,12 +889,24 @@ function End({ over, chName, chKey, stress, log, onRestart, onHome, onOther }) {
     <p>最終壓力值：<b>{stress}</b></p>
     {!over && <p>結果統計：平安通過 {safe} 次／遭遇事件 {events} 次</p>}
     <b>事件紀錄摘要</b><LogSummary log={log} />
+    <div className="endshare">
+      <div className="k">《平凡的一天》遊戲結算</div>
+      <h3>這一天結束了，但故事還沒結束。</h3>
+      <div className="big">你的經歷，也值得被聽見。</div>
+      <p>玩完遊戲後，是否讓你想起了自己或身邊的人曾經歷過的類似情境？</p>
+      <p>有些事情看似平凡，卻可能是許多人共同經歷、卻很少被看見的日常。</p>
+      <p>如果你願意，可以分享自己的感受或經驗，讓更多人理解這些事情並不罕見。</p>
+      <p>你不是孤單的一個人。</p>
+      <p><b>你想分享些什麼？</b></p>
+      <button className="btn" onClick={() => setXp(true)}>我想分享</button>
+      <p className="vol">分享完全出於自願，也可以選擇不分享。</p>
+    </div>
     <div className="row" style={{ justifyContent: "center" }}>
       <button className="btn" onClick={onRestart}>{over ? "重新開始" : "重新遊玩" + chName}</button>
       <button className="btn ghost" onClick={onHome}>返回首頁</button>
       {!over && <button className="btn ghost" onClick={onOther}>前往其他篇章</button>}
     </div>
-  </div></div>);
+  </div>{xp && <Experiences initialTab="write" onClose={() => setXp(false)} />}</div>);
 }
 
 /* ============ 遊戲進度管理 ============ */
